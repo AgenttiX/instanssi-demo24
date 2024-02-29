@@ -1,0 +1,4 @@
+*.gz
+*.zip
+example/*.html
+example/tmp.*
