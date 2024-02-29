@@ -100,6 +100,42 @@ var objTile, objBackground, objBall;
  * shapes that you're going to use - modifying shapes on-the-fly is not
  * yet supported.
  */
+
+function funCircle2(radius,swpfidel,arclen){
+    var r = radius;
+    var a = arclen?arclen:1;
+    // Fidelity hint for the sweep surface evaluator
+    this.n = swpfidel?swpfidel:10;
+    this.c = function(t){
+        var s = Math.sin(t * 2 * PI * a);
+        var c = Math.cos(t * 2 * PI * a);
+        return [    s,  -c,  0,  0,  // normal
+                    0,   0,  1,  0,  // binormal
+                   -c,  -s,  0,  0,  // tangent
+                 -s*r, c*r,  0,  1   // position
+               ];
+    };
+}
+
+var cptsProfile = [
+    1, -1,0,1,
+    1, .0,0,1,
+    1,  1,0,1,
+    0,  1,0,1,
+   -1,  1,0,1,
+   -1, .0,0,1,
+   -1, -1,0,1,
+    0, -1,0,1,
+    1, -1,0,1,
+    1, .0,0,1,
+    1,  1,0,1,
+];
+
+function GenRing(radius, thickness) {
+    GenCyl.call(this, new funCircle(thickness,10,1), 32, new funCircle(radius,32));
+    // this.foo = "bar";
+}
+
 function initAssets(){
     // The library provides some elementary ways to create shapes, as per
     // the MIT OCW first course in computer graphics that was its inspiration.
@@ -113,13 +149,15 @@ function initAssets(){
     objTile = new Box(1);
 
     // Ball can be built from circle curves:
-    objBall = new GenCyl(new funCircle(1,10,.5), 32,
-                         new funCircle(0,32));
+    objBall = new GenCyl(new funCircle(1,10,.5), 32, new funCircle(0,32));
 
     // Can make the radius negative to make an interior of a ball:
-    objBackground = new GenCyl(new funCircle(-10,10,.5), 32,
-                               new funCircle(0,32));
+    objBackground = new GenCyl(new funCircle(-10,10,.5), 32, new funCircle(0,32));
 
+    // objRing = new GenCyl(new funCircle(1,10,1), 32, new funCircle(3,32));
+    objRing = new GenRing(3, 1);
+
+    objRingSpecial = new GenCyl(new funBezierCurve(cptsProfile), 32, new funCircle(3,32));
 }
 
 
@@ -281,6 +319,9 @@ function buildSceneAtTime(t){
     // Colors can be animated, as can anything. Use "t" for sync and innovate...
     var cloota = basic_color(.2, .5 + Math.sin(t), .4);
 
+    var cdebug = basic_color(.2, .5 + Math.sin(t), .4);
+    cloota[15] = .25;
+
     // Names can be given to any nuts or bolts, to help you animate and manage your scene:
     var parivaljakon_sijainti = [translate_wi(0,-3,0)];
 
@@ -304,43 +345,60 @@ function buildSceneAtTime(t){
     // to be created in the first place... silly me... but this makes an instructional
     // example, so leave it like this.. 
 
-    sceneroot.c.push({f:[],
-                      o:[],
-                      c:[
-                              {f:[translate_wi(0,-3,0), scaleXYZ_wi(60,.2,60)],
-                               o:[new Material(cpohja), objTile],
-                               c:[]},
+    sceneroot.c.push({
+        f:[],
+        o:[],
+        c:[
+            // {f:[translate_wi(0,-3,0), scaleXYZ_wi(60,.2,60)],
+            // o:[new Material(cpohja), objTile],
+            // c:[]},
 
-                              {f:[translate_wi(0,lootakorkeus,0), scaleXYZ_wi(2,2,2)],
-                               o:[new Material(cloota), objTile],
-                               c:[]},
+            // Rings
+            {f:[rotX_wi(t)],
+            o:[new Material(cdebug), new GenRing(2, 0.1)],
+            c:[]},
 
-                              {f:parivaljakon_sijainti,
-                               o:[],
-                               c:[parivaljakko]},
+            {f:[rotY_wi(t)],
+            o:[new Material(cdebug), new GenRing(2.5, 0.1)],
+            c:[]},
 
-                              {f:[scaleXYZ_wi(3,3,3)],
-                               o:[],
-                               c:[tausta]
-                              },
-                                
-                              // The scene must have exactly one Camera. It doesn't work without.
-                              {f:[translate_wi(0,3,0), rotY_wi(t/3), translate_wi(0,0,30), rotX_wi(.2)],
-                               o:[],
-                               c:[],
-                               r:[new Camera()]
-                              },
+            {f:[rotX_wi(t), rotY_wi(t)],
+            o:[new Material(cdebug), new GenRing(3, 0.1)],
+            c:[]},
 
-                              // With "Vanilla 1.4" intro, the scene must have exactly one Light.
-                              // It doesn't work without.
-                              {f:[translate_wi(9*Math.sin(t/9), 3+Math.sin(t), 0), scale_wi(.1)],
-                                o:[new Material(basic_color(9,9,9)), objTile],
-                                c:[],
-                                r:[new Light()]
-                              }
-                        ]
-                    }
-                    );
+            // Couple
+            {f:parivaljakon_sijainti,
+            o:[],
+            c:[parivaljakko]},
+
+            // Background
+            {f:[scaleXYZ_wi(3,3,3)],
+            o:[],
+            c:[tausta]
+            },
+
+            // Central sphere
+            {f:[translate_wi(0, 0, 0), scaleXYZ_wi(0.1, 0.1, 0.1)],
+            o:[new Material(cloota), objBall],
+            c:[]},
+
+            // The scene must have exactly one Camera. It doesn't work without.
+            {f:[translate_wi(0,3,0), rotY_wi(t/6), translate_wi(0,0,30), rotX_wi(.2)],
+            o:[],
+            c:[],
+            r:[new Camera()]
+            },
+
+            // With "Vanilla 1.4" intro, the scene must have exactly one Light.
+            // It doesn't work without.
+            {f:[translate_wi(9*Math.sin(t/9), 3+Math.sin(t), 0), scale_wi(.1)],
+            o:[new Material(basic_color(9,9,9)), objTile],
+            c:[],
+            r:[new Light()]
+            }
+        ]
+    }
+    );
 
     return sceneroot;
 }
